@@ -6,8 +6,9 @@ use ash::{
 };
 use common::*;
 use imgui::*;
-use imgui_rs_vulkan_renderer::vulkan::*;
+use imgui_rs_vulkan_renderer::{Renderer, vulkan::*};
 use imgui_rs_vulkan_renderer::RendererVkContext;
+use imgui_rs_vulkan_renderer::VkTextureData;
 
 use std::error::Error;
 
@@ -17,18 +18,12 @@ use simple_logger::SimpleLogger;
 const APP_NAME: &str = "custom textures";
 
 struct CustomTexturesApp {
-    descriptor_set_layout: vk::DescriptorSetLayout,
-    descriptor_pool: vk::DescriptorPool,
-    _descriptor_set: vk::DescriptorSet,
     my_texture: Texture,
     my_texture_id: Option<TextureId>,
     lenna: Option<Lenna>,
 }
 
 struct Lenna {
-    descriptor_set_layout: vk::DescriptorSetLayout,
-    descriptor_pool: vk::DescriptorPool,
-    _descriptor_set: vk::DescriptorSet,
     texture: Texture,
     texture_id: TextureId,
     size: [f32; 2],
@@ -37,7 +32,7 @@ struct Lenna {
 impl CustomTexturesApp {
     fn new<C: RendererVkContext>(
         vk_context: &C,
-        textures: &mut Textures<vk::DescriptorSet>,
+        renderer: &mut Renderer
     ) -> Self {
         const WIDTH: usize = 100;
         const HEIGHT: usize = 100;
@@ -73,31 +68,19 @@ impl CustomTexturesApp {
             .unwrap()
         };
 
-        let descriptor_set_layout =
-            create_vulkan_descriptor_set_layout(vk_context.device()).unwrap();
+        // let descriptor_set_layout =
+        //     create_vulkan_descriptor_set_layout(vk_context.device()).unwrap();
 
-        let descriptor_pool = create_vulkan_descriptor_pool(vk_context.device(), 1).unwrap();
+        // let descriptor_pool = create_vulkan_descriptor_pool(vk_context.device(), 1).unwrap();
 
-        let descriptor_set = create_vulkan_descriptor_set(
-            &vk_context.device(),
-            descriptor_set_layout,
-            descriptor_pool,
-            my_texture.image_view,
-            my_texture.sampler,
-        )
-        .unwrap();
-
-        let texture_id = textures.insert(descriptor_set);
+        let texture_id = renderer.register_texture(vk_context, my_texture.image_view, my_texture.sampler).unwrap();
 
         let my_texture_id = Some(texture_id);
 
         // Lenna
-        let lenna = Some(Lenna::new(vk_context, textures).unwrap());
+        let lenna = Some(Lenna::new(vk_context, renderer).unwrap());
 
         CustomTexturesApp {
-            descriptor_set_layout,
-            descriptor_pool,
-            _descriptor_set: descriptor_set,
             my_texture,
             my_texture_id,
             lenna,
@@ -125,9 +108,9 @@ impl CustomTexturesApp {
 impl Lenna {
     fn new<C: RendererVkContext>(
         vk_context: &C,
-        textures: &mut Textures<vk::DescriptorSet>,
+        renderer: &mut Renderer,
     ) -> Result<Self, Box<dyn Error>> {
-        let lenna_bytes = include_bytes!("../assets/images/Lenna.jpg");
+        let lenna_bytes = include_bytes!("../assets/images/mandelbrot.jfif");
         let image =
             image::load_from_memory_with_format(lenna_bytes, image::ImageFormat::Jpeg).unwrap();
         let (width, height) = image.dimensions();
@@ -150,25 +133,8 @@ impl Lenna {
         )
         .unwrap();
 
-        let descriptor_set_layout =
-            create_vulkan_descriptor_set_layout(vk_context.device()).unwrap();
-
-        let descriptor_pool = create_vulkan_descriptor_pool(vk_context.device(), 1).unwrap();
-
-        let descriptor_set = create_vulkan_descriptor_set(
-            vk_context.device(),
-            descriptor_set_layout,
-            descriptor_pool,
-            texture.image_view,
-            texture.sampler,
-        )
-        .unwrap();
-
-        let texture_id = textures.insert(descriptor_set);
+        let texture_id = renderer.register_texture(vk_context, texture.image_view, texture.sampler).unwrap();
         Ok(Lenna {
-            descriptor_set_layout,
-            descriptor_pool,
-            _descriptor_set: descriptor_set,
             texture,
             texture_id,
             size: [width as f32, height as f32],
@@ -182,9 +148,9 @@ impl Lenna {
     fn destroy<C: RendererVkContext>(&mut self, context: &C) {
         unsafe {
             let device = context.device();
-            device.destroy_descriptor_pool(self.descriptor_pool, None);
+            //device.destroy_descriptor_pool(self.descriptor_pool, None);
             self.texture.destroy(device);
-            device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
+            //device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
         }
     }
 }
@@ -193,12 +159,12 @@ impl App for CustomTexturesApp {
     fn destroy(&mut self, context: &VulkanContext) {
         unsafe {
             let device = context.device();
-            device.destroy_descriptor_pool(self.descriptor_pool, None);
+            //device.destroy_descriptor_pool(self.descriptor_pool, None);
             self.my_texture.destroy(device);
             if let Some(lenna) = &mut self.lenna {
                 lenna.destroy(context);
             }
-            device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
+            //device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
         }
     }
 }
@@ -206,7 +172,7 @@ impl App for CustomTexturesApp {
 fn main() -> Result<(), Box<dyn Error>> {
     SimpleLogger::new().init()?;
     let mut system = System::new(APP_NAME)?;
-    let my_app = CustomTexturesApp::new(&system.vulkan_context, system.renderer.textures());
+    let my_app = CustomTexturesApp::new(&system.vulkan_context, &mut system.renderer);
     system.run(my_app, move |_, ui, app| {
         app.show_textures(ui);
     })?;

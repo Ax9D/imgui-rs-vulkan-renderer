@@ -207,7 +207,7 @@ pub fn create_vulkan_descriptor_pool(
 
     let sizes = [vk::DescriptorPoolSize {
         ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-        descriptor_count: 1,
+        descriptor_count: max_sets,
     }];
     let create_info = vk::DescriptorPoolCreateInfo::builder()
         .pool_sizes(&sizes)
@@ -215,16 +215,14 @@ pub fn create_vulkan_descriptor_pool(
     unsafe { Ok(device.create_descriptor_pool(&create_info, None)?) }
 }
 
-/// Create a descriptor set compatible with the graphics pipeline from a texture.
-pub fn create_vulkan_descriptor_set(
+pub fn create_texture_descriptor_set(
     device: &Device,
-    set_layout: vk::DescriptorSetLayout,
-    descriptor_pool: vk::DescriptorPool,
     image_view: vk::ImageView,
     sampler: vk::Sampler,
+    set_layout: vk::DescriptorSetLayout,
+    descriptor_pool: vk::DescriptorPool
 ) -> RendererResult<vk::DescriptorSet> {
-    log::debug!("Creating vulkan descriptor set");
-
+    
     let set = {
         let set_layouts = [set_layout];
         let allocate_info = vk::DescriptorSetAllocateInfo::builder()

@@ -4,9 +4,11 @@ pub mod vulkan;
 use crate::RendererError;
 use ash::{version::DeviceV1_0, vk, Device, Instance};
 use imgui::{Context, DrawCmd, DrawCmdParams, DrawData, TextureId, Textures};
+
 use mesh::*;
 use ultraviolet::projection::orthographic_vk;
 use vulkan::*;
+
 
 use self::allocator::Allocator;
 
@@ -62,6 +64,13 @@ pub trait RendererVkContext {
 /// [`cmd_draw`]: #method.cmd_draw
 /// [`destroy`]: #method.destroy
 /// [`RendererVkContext`]: trait.RendererVkContext.html
+#[derive(Debug, Clone, Copy)]
+pub struct VkTextureData {
+    pub image_view: vk::ImageView,
+    pub sampler: vk::Sampler,
+    pub set: vk::DescriptorSet,
+}
+
 pub struct Renderer {
     allocator: Allocator,
     pipeline: vk::Pipeline,
@@ -69,7 +78,6 @@ pub struct Renderer {
     descriptor_set_layout: vk::DescriptorSetLayout,
     fonts_texture: Texture,
     descriptor_pool: vk::DescriptorPool,
-    descriptor_set: vk::DescriptorSet,
     textures: Textures<vk::DescriptorSet>,
     in_flight_frames: usize,
     frames: Option<Frames>,
@@ -181,23 +189,16 @@ impl Renderer {
             )?
         };
 
-        let mut fonts = imgui.fonts();
-        fonts.tex_id = TextureId::from(usize::MAX);
-
         // Descriptor pool
-        let descriptor_pool = create_vulkan_descriptor_pool(vk_context.device(), 1)?;
-
-        // Descriptor set
-        let descriptor_set = create_vulkan_descriptor_set(
-            vk_context.device(),
-            descriptor_set_layout,
-            descriptor_pool,
-            fonts_texture.image_view,
-            fonts_texture.sampler,
-        )?;
-
+        let descriptor_pool = create_vulkan_descriptor_pool(vk_context.device(), 1000)?;
         // Textures
-        let textures = Textures::new();
+        let mut textures = Textures::new();
+        let font_tex_id = TextureId::from(usize::MAX);
+        
+        imgui.fonts().tex_id = font_tex_id;
+
+        textures.replace(font_tex_id, 
+                create_texture_descriptor_set(vk_context.device(), fonts_texture.image_view, fonts_texture.sampler, descriptor_set_layout, descriptor_pool)?);
 
         Ok(Self {
             allocator,
@@ -206,7 +207,6 @@ impl Renderer {
             descriptor_set_layout,
             fonts_texture,
             descriptor_pool,
-            descriptor_set,
             textures,
             in_flight_frames,
             frames: None,
@@ -248,6 +248,15 @@ impl Renderer {
         Ok(())
     }
 
+    pub fn register_texture<C: RendererVkContext>(&mut self, vk_context: &C, image_view: vk::ImageView, sampler: vk::Sampler) -> Result<TextureId, RendererError>{
+        let set = create_texture_descriptor_set(vk_context.device(), image_view, sampler, self.descriptor_set_layout, self.descriptor_pool)?;
+
+        let id = self.textures().insert(set);
+
+
+        Ok(id)
+    }
+
     /// Returns the texture mapping used by the renderer to lookup textures.
     ///
     /// Textures are provided by the application as `vk::DescriptorSet`s.
@@ -273,10 +282,8 @@ impl Renderer {
     }
 
     fn lookup_descriptor_set(&self, texture_id: TextureId) -> RendererResult<vk::DescriptorSet> {
-        if texture_id.id() == usize::MAX {
-            Ok(self.descriptor_set)
-        } else if let Some(descriptor_set) = self.textures.get(texture_id) {
-            Ok(*descriptor_set)
+       if let Some(&descriptor_set) = self.textures.get(texture_id) {
+            Ok(descriptor_set)
         } else {
             Err(RendererError::BadTexture(texture_id))
         }
