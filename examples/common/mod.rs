@@ -132,6 +132,7 @@ impl<A: App> System<A> {
                 }),
             },
         ]);
+        imgui.fonts().tex_desired_width = 256;
         imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
         platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Rounded);
 

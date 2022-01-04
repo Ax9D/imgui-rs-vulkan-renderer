@@ -216,6 +216,7 @@ impl Renderer {
         let fonts_texture = {
             let mut fonts = imgui.fonts();
             let atlas_texture = fonts.build_rgba32_texture();
+            log::debug!("Texture atlas. Width: {} - Height: {}", atlas_texture.width, atlas_texture.height);
 
             Texture::from_rgba8(
                 &device,
