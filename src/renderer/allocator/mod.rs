@@ -3,7 +3,6 @@ mod default;
 mod vkmem;
 
 use crate::{RendererResult, RendererVkContext};
-use ash::version::DeviceV1_0;
 use ash::vk;
 
 use self::default::DefaultAllocator;
@@ -133,16 +132,16 @@ pub trait AllocatorTrait {
                         ash::util::Align::new(data_ptr, std::mem::align_of::<T>() as _, size);
                     align.copy_from_slice(&data);
                     device.unmap_memory(*memory);
-                }
+                } 
                 #[cfg(feature = "vkmem")]
-                Memory::VkMemAllocation(allocation) => {
-                    let allocator = vk_context.vk_mem_allocator();
-                    let data_ptr = allocator.map_memory(allocation)? as *mut std::ffi::c_void;
-                    let mut align =
-                        ash::util::Align::new(data_ptr, std::mem::align_of::<T>() as _, size);
-                    align.copy_from_slice(&data);
-                    allocator.unmap_memory(allocation);
-                }
+                  Memory::VkMemAllocation(allocation) => {
+                      let allocator = vk_context.vk_mem_allocator();
+                      let data_ptr = allocator.map_memory(allocation)? as *mut std::ffi::c_void;
+                      let mut align =
+                          ash::util::Align::new(data_ptr, std::mem::align_of::<T>() as _, size);
+                      align.copy_from_slice(&data);
+                      allocator.unmap_memory(allocation);
+                  }
             }
         };
         Ok(())

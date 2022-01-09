@@ -4,7 +4,8 @@
 //! are exposed since they might help users create descriptors sets when using the custom textures.
 
 use crate::RendererResult;
-use ash::{version::DeviceV1_0, vk, Device};
+
+use ash::{vk, Device};
 pub(crate) use buffer::*;
 use std::{ffi::CString, mem};
 pub(crate) use texture::*;
@@ -145,7 +146,12 @@ pub(crate) fn create_vulkan_pipeline(
         .alpha_to_one_enable(false);
 
     let color_blend_attachments = [vk::PipelineColorBlendAttachmentState::builder()
-        .color_write_mask(vk::ColorComponentFlags::all())
+        .color_write_mask(
+            vk::ColorComponentFlags::R
+                | vk::ColorComponentFlags::G
+                | vk::ColorComponentFlags::B
+                | vk::ColorComponentFlags::A,
+        )
         .blend_enable(true)
         .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
         .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
@@ -220,9 +226,8 @@ pub fn create_texture_descriptor_set(
     image_view: vk::ImageView,
     sampler: vk::Sampler,
     set_layout: vk::DescriptorSetLayout,
-    descriptor_pool: vk::DescriptorPool
+    descriptor_pool: vk::DescriptorPool,
 ) -> RendererResult<vk::DescriptorSet> {
-    
     let set = {
         let set_layouts = [set_layout];
         let allocate_info = vk::DescriptorSetAllocateInfo::builder()
@@ -283,7 +288,7 @@ mod texture {
     use crate::renderer::allocator::{Allocator, AllocatorTrait, Memory};
     use crate::{RendererResult, RendererVkContext};
     use ash::vk;
-    use ash::{version::DeviceV1_0, Device};
+    use ash::Device;
 
     /// Helper struct representing a sampled texture.
     pub struct Texture {

@@ -1,14 +1,8 @@
 mod common;
-
-use ash::{
-    version::{DeviceV1_0, InstanceV1_0},
-    vk,
-};
 use common::*;
 use imgui::*;
-use imgui_rs_vulkan_renderer::{Renderer, vulkan::*};
 use imgui_rs_vulkan_renderer::RendererVkContext;
-use imgui_rs_vulkan_renderer::VkTextureData;
+use imgui_rs_vulkan_renderer::{Renderer};
 
 use std::error::Error;
 
@@ -30,10 +24,7 @@ struct Lenna {
 }
 
 impl CustomTexturesApp {
-    fn new<C: RendererVkContext>(
-        vk_context: &C,
-        renderer: &mut Renderer
-    ) -> Self {
+    fn new<C: RendererVkContext>(vk_context: &C, renderer: &mut Renderer) -> Self {
         const WIDTH: usize = 100;
         const HEIGHT: usize = 100;
 
@@ -73,7 +64,9 @@ impl CustomTexturesApp {
 
         // let descriptor_pool = create_vulkan_descriptor_pool(vk_context.device(), 1).unwrap();
 
-        let texture_id = renderer.register_texture(vk_context, my_texture.image_view, my_texture.sampler).unwrap();
+        let texture_id = renderer
+            .register_texture(vk_context, my_texture.image_view, my_texture.sampler)
+            .unwrap();
 
         let my_texture_id = Some(texture_id);
 
@@ -88,10 +81,10 @@ impl CustomTexturesApp {
     }
 
     fn show_textures(&self, ui: &Ui) {
-        Window::new(im_str!("Hello textures"))
+        Window::new("Hello textures")
             .size([400.0, 600.0], Condition::FirstUseEver)
             .build(ui, || {
-                ui.text(im_str!("Hello textures!"));
+                ui.text("Hello textures!");
                 if let Some(my_texture_id) = self.my_texture_id {
                     ui.text("Some generated texture");
                     Image::new(my_texture_id, [100.0, 100.0]).build(ui);
@@ -133,7 +126,9 @@ impl Lenna {
         )
         .unwrap();
 
-        let texture_id = renderer.register_texture(vk_context, texture.image_view, texture.sampler).unwrap();
+        let texture_id = renderer
+            .register_texture(vk_context, texture.image_view, texture.sampler)
+            .unwrap();
         Ok(Lenna {
             texture,
             texture_id,
@@ -146,18 +141,16 @@ impl Lenna {
     }
 
     fn destroy<C: RendererVkContext>(&mut self, context: &C) {
-        unsafe {
             let device = context.device();
             //device.destroy_descriptor_pool(self.descriptor_pool, None);
             self.texture.destroy(device);
             //device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
-        }
     }
 }
 
 impl App for CustomTexturesApp {
     fn destroy(&mut self, context: &VulkanContext) {
-        unsafe {
+        
             let device = context.device();
             //device.destroy_descriptor_pool(self.descriptor_pool, None);
             self.my_texture.destroy(device);
@@ -165,12 +158,11 @@ impl App for CustomTexturesApp {
                 lenna.destroy(context);
             }
             //device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
-        }
     }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    SimpleLogger::new().init()?;
+    SimpleLogger::new().without_timestamps().init()?;
     let mut system = System::new(APP_NAME)?;
     let my_app = CustomTexturesApp::new(&system.vulkan_context, &mut system.renderer);
     system.run(my_app, move |_, ui, app| {

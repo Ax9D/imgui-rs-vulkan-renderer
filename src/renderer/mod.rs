@@ -2,13 +2,12 @@ mod allocator;
 pub mod vulkan;
 
 use crate::RendererError;
-use ash::{version::DeviceV1_0, vk, Device, Instance};
+use ash::{vk, Device, Instance};
 use imgui::{Context, DrawCmd, DrawCmdParams, DrawData, TextureId, Textures};
 
 use mesh::*;
 use ultraviolet::projection::orthographic_vk;
 use vulkan::*;
-
 
 use self::allocator::Allocator;
 
@@ -194,11 +193,19 @@ impl Renderer {
         // Textures
         let mut textures = Textures::new();
         let font_tex_id = TextureId::from(usize::MAX);
-        
+
         imgui.fonts().tex_id = font_tex_id;
 
-        textures.replace(font_tex_id, 
-                create_texture_descriptor_set(vk_context.device(), fonts_texture.image_view, fonts_texture.sampler, descriptor_set_layout, descriptor_pool)?);
+        textures.replace(
+            font_tex_id,
+            create_texture_descriptor_set(
+                vk_context.device(),
+                fonts_texture.image_view,
+                fonts_texture.sampler,
+                descriptor_set_layout,
+                descriptor_pool,
+            )?,
+        );
 
         Ok(Self {
             allocator,
@@ -248,11 +255,21 @@ impl Renderer {
         Ok(())
     }
 
-    pub fn register_texture<C: RendererVkContext>(&mut self, vk_context: &C, image_view: vk::ImageView, sampler: vk::Sampler) -> Result<TextureId, RendererError>{
-        let set = create_texture_descriptor_set(vk_context.device(), image_view, sampler, self.descriptor_set_layout, self.descriptor_pool)?;
+    pub fn register_texture<C: RendererVkContext>(
+        &mut self,
+        vk_context: &C,
+        image_view: vk::ImageView,
+        sampler: vk::Sampler,
+    ) -> Result<TextureId, RendererError> {
+        let set = create_texture_descriptor_set(
+            vk_context.device(),
+            image_view,
+            sampler,
+            self.descriptor_set_layout,
+            self.descriptor_pool,
+        )?;
 
         let id = self.textures().insert(set);
-
 
         Ok(id)
     }
@@ -282,7 +299,7 @@ impl Renderer {
     }
 
     fn lookup_descriptor_set(&self, texture_id: TextureId) -> RendererResult<vk::DescriptorSet> {
-       if let Some(&descriptor_set) = self.textures.get(texture_id) {
+        if let Some(&descriptor_set) = self.textures.get(texture_id) {
             Ok(descriptor_set)
         } else {
             Err(RendererError::BadTexture(texture_id))

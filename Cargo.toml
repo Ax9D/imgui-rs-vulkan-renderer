@@ -18,23 +18,20 @@ exclude = [
 
 [dependencies]
 log = "0.4"
-imgui = "^0.7"
-ash = ">=0.29, <0.33"
+imgui = "^0.8"
+ash = "0.35"
 ultraviolet = "0.8"
-vk-mem = { version = "0.2", optional = true }
+vk-mem = { git = "https://github.com/Ax9D/vk-mem-fork", branch = "main", optional = true }
 
-[patch.crates-io]
-# Version setting an upper bound to ash version
-vk-mem = { git = "https://github.com/Chris--B/vk-mem-rs" }
 
 [features]
 vkmem = ["vk-mem"]
 
 [dev-dependencies]
-simple_logger = "1.11"
+simple_logger = "1.16.0"
 winit = "0.25.0"
-imgui-winit-support = { version = "^0.7", default-features = false, features = ["winit-25"] }
-ash = "0.32"
-ash-window = "0.6"
+imgui-winit-support = { version = "^0.8", default-features = false, features = ["winit-25"] }
+ash = "0.35"
+ash-window = "0.9.0"
 image = "0.23"
 imgui-rs-vulkan-renderer = { path = ".", features = ["vkmem"] }
