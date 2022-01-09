@@ -8,7 +8,7 @@ use std::error::Error;
 const APP_NAME: &str = "radio button";
 
 fn main() -> Result<(), Box<dyn Error>> {
-    SimpleLogger::new().init()?;
+    SimpleLogger::new().without_timestamps().init()?;
     let mut state = State::default();
     System::new(APP_NAME)?.run((), move |run, ui, _| {
         example_selector(run, ui, &mut state);
@@ -23,12 +23,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn example_selector(run: &mut bool, ui: &mut Ui, state: &mut State) {
-    let w = Window::new("Radio button examples")
+    ui.window("Radio button examples")
         .opened(run)
         .position([20.0, 20.0], Condition::Appearing)
         .size([700.0, 80.0], Condition::Appearing)
-        .resizable(false);
-    w.build(&ui, || {
+        .resizable(false)
+        .build(|| {
         let mut clicked = false;
         clicked |= ui.radio_button(
             "Example 1: Boolean radio buttons",
@@ -43,10 +43,10 @@ fn example_selector(run: &mut bool, ui: &mut Ui, state: &mut State) {
 }
 
 fn example_1(ui: &Ui, state: &mut State) {
-    let w = Window::new("Example 1: Boolean radio buttons")
+        ui.window("Example 1: Boolean radio buttons")
         .size([700.0, 200.0], Condition::Appearing)
-        .position([20.0, 120.0], Condition::Appearing);
-    w.build(&ui, || {
+        .position([20.0, 120.0], Condition::Appearing)
+        .build(|| {
         ui.text_wrapped(
             "Boolean radio buttons accept a boolean active state, which is passed as a value and \
              not as a mutable reference. This means that it's not updated automatically, so you \
@@ -69,10 +69,10 @@ fn example_1(ui: &Ui, state: &mut State) {
 }
 
 fn example_2(ui: &Ui, state: &mut State) {
-    let w = Window::new("Example 2: Radio buttons")
+    let w = ui.window("Example 2: Radio buttons")
         .size([700.0, 300.0], Condition::Appearing)
-        .position([20.0, 120.0], Condition::Appearing);
-    w.build(&ui, || {
+        .position([20.0, 120.0], Condition::Appearing)
+        .build(|| {
         ui.text_wrapped(
             "Normal radio buttons accept a mutable reference to state, and the value \
              corresponding to this button. They are very flexible, because the value can be any \

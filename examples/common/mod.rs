@@ -207,7 +207,7 @@ impl<A: App> System<A> {
                     let mut ui = imgui.frame();
                     ui_builder(&mut run, &mut ui, &mut app);
                     platform.prepare_render(&ui, &window);
-                    let draw_data = ui.render();
+                    let draw_data = imgui.render();
 
                     if !run {
                         return;

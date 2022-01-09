@@ -10,9 +10,9 @@ const APP_NAME: &str = "hello world";
 fn main() -> Result<(), Box<dyn Error>> {
     SimpleLogger::new().init()?;
     System::new(APP_NAME)?.run((), |_, ui, _| {
-        Window::new("Hello world")
+        ui.window("Hello world")
             .size([300.0, 100.0], Condition::FirstUseEver)
-            .build(ui, || {
+            .build(|| {
                 ui.text("Hello world!");
                 ui.text("こんにちは世界！");
                 ui.text("This...is...imgui-rs!");
