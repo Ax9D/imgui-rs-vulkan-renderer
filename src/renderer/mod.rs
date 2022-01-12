@@ -366,8 +366,10 @@ impl Renderer {
     }
 
     fn lookup_descriptor_set(&self, texture_id: TextureId) -> RendererResult<vk::DescriptorSet> {
-        if let Some(&descriptor_set) = self.textures.get(texture_id) {
-            Ok(descriptor_set)
+        if texture_id.id() == usize::MAX {
+            Ok(self.descriptor_set)
+        } else if let Some(descriptor_set) = self.textures.get(texture_id) {
+            Ok(*descriptor_set)
         } else {
             Err(RendererError::BadTexture(texture_id))
         }
