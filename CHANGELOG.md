@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.1.0
+
+- Add optional depth test/write support.
+- **BREAKING** Added `Options` parameter to all renderer instanciation methods.
+- **BREAKING** Remove in_flight_frames parameter from all renderer instanciation methods. Moved to `Options`.
+- Bump gpu-allocator to 0.15
+
+## 1.0.0
+
+- Rework API:
+    - Remove the trait `RendererVkContext` so no need to pass a ref to each method.
+    - Remove `Renderer::destroy` and implement `Drop`.
+- Add [`gpu-allocator`](https://github.com/Traverse-Research/gpu-allocator) support.
+- Add multiple font support with `Renderer::update_fonts_texture`.
+- Bump dependencies:
+    - imgui 0.8
+    - ash 0.35
+- Add and update examples.
+
 ## 0.8.1
 
 - Fix vk-mem-rs compatibility with ash 0.33 (by setting an upper bound)

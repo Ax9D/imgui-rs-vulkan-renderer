@@ -7,7 +7,7 @@ homepage = "https://github.com/adrien-ben/imgui-rs-vulkan-renderer"
 repository = "https://github.com/adrien-ben/imgui-rs-vulkan-renderer"
 documentation = "https://docs.rs/imgui-rs-vulkan-renderer"
 license = "MIT"
-version = "0.8.2"
+version = "1.1.0"
 authors = ["Adrien Bennadji <adrien.bennadji@live.fr>"]
 edition = "2018"
 
@@ -17,21 +17,26 @@ exclude = [
 ]
 
 [dependencies]
+thiserror = "1.0"
 log = "0.4"
 imgui = {git = "https://github.com/Ax9D/imgui-docking-rs" }
-ash = "0.35"
-ultraviolet = "0.8"
-vk-mem = { git = "https://github.com/Ax9D/vk-mem-fork", branch = "main", optional = true }
+ash = { version = "0.35", default-features = false, features = ["debug"] }
+ultraviolet = "0.8" 
 
+gpu-allocator = { version = "0.15", default-features = false, features = ["vulkan"], optional = true }
 
-[features]
-vkmem = ["vk-mem"]
+vk-mem = { version = "0.2", optional = true }
+
+[patch.crates-io]
+# Forked version for ash compatibility. Original repo is not maintained anymore.
+vk-mem = { git = "https://github.com/adrien-ben/vk-mem-rs", tag = "0.2.3-ash-0.35" }
 
 [dev-dependencies]
-simple_logger = "1.16.0"
-winit = "0.25.0"
+simple_logger = "1.11"
+winit = "0.26.0"
+imgui = { git = "https://github.com/Ax9D/imgui-docking-rs", features = ["tables-api"] }
 imgui-winit-support = { git = "https://github.com/Ax9D/imgui-docking-rs", default-features = false, features = ["winit-25"] }
-ash = "0.35"
-ash-window = "0.9.0"
+ash = { version = "0.35", default-features = false, features = ["debug", "linked"] }
+ash-window = "0.9"
 image = "0.23"
-imgui-rs-vulkan-renderer = { path = ".", features = ["vkmem"] }
+imgui-rs-vulkan-renderer = { path = ".", features = ["gpu-allocator"] }

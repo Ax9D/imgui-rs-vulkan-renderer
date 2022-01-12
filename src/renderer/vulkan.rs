@@ -3,8 +3,7 @@
 //! A set of functions used to ease Vulkan resources creations. These are supposed to be internal but
 //! are exposed since they might help users create descriptors sets when using the custom textures.
 
-use crate::RendererResult;
-
+use crate::{Options, RendererResult};
 use ash::{vk, Device};
 pub(crate) use buffer::*;
 use std::{ffi::CString, mem};
@@ -59,6 +58,7 @@ pub(crate) fn create_vulkan_pipeline(
     device: &Device,
     pipeline_layout: vk::PipelineLayout,
     render_pass: vk::RenderPass,
+    options: Options,
 ) -> RendererResult<vk::Pipeline> {
     let entry_point_name = CString::new("main").unwrap();
 
@@ -166,6 +166,14 @@ pub(crate) fn create_vulkan_pipeline(
         .attachments(&color_blend_attachments)
         .blend_constants([0.0, 0.0, 0.0, 0.0]);
 
+    let depth_stencil_state_create_info = vk::PipelineDepthStencilStateCreateInfo::builder()
+        .depth_test_enable(options.enable_depth_test)
+        .depth_write_enable(options.enable_depth_write)
+        .depth_compare_op(vk::CompareOp::ALWAYS)
+        .depth_bounds_test_enable(false)
+        .stencil_test_enable(false)
+        .build();
+
     let dynamic_states = [vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT];
     let dynamic_states_info =
         vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_states);
@@ -178,6 +186,7 @@ pub(crate) fn create_vulkan_pipeline(
         .viewport_state(&viewport_info)
         .multisample_state(&multisampling_info)
         .color_blend_state(&color_blending_info)
+        .depth_stencil_state(&depth_stencil_state_create_info)
         .dynamic_state(&dynamic_states_info)
         .layout(pipeline_layout)
         .render_pass(render_pass)
@@ -213,21 +222,25 @@ pub fn create_vulkan_descriptor_pool(
 
     let sizes = [vk::DescriptorPoolSize {
         ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-        descriptor_count: max_sets,
+        descriptor_count: 1,
     }];
     let create_info = vk::DescriptorPoolCreateInfo::builder()
         .pool_sizes(&sizes)
-        .max_sets(max_sets);
+        .max_sets(max_sets)
+        .flags(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET);
     unsafe { Ok(device.create_descriptor_pool(&create_info, None)?) }
 }
 
-pub fn create_texture_descriptor_set(
+/// Create a descriptor set compatible with the graphics pipeline from a texture.
+pub fn create_vulkan_descriptor_set(
     device: &Device,
-    image_view: vk::ImageView,
-    sampler: vk::Sampler,
     set_layout: vk::DescriptorSetLayout,
     descriptor_pool: vk::DescriptorPool,
+    image_view: vk::ImageView,
+    sampler: vk::Sampler,
 ) -> RendererResult<vk::DescriptorSet> {
+    log::debug!("Creating vulkan descriptor set");
+
     let set = {
         let set_layouts = [set_layout];
         let allocate_info = vk::DescriptorSetAllocateInfo::builder()
@@ -259,25 +272,25 @@ pub fn create_texture_descriptor_set(
 mod buffer {
 
     use crate::{
-        renderer::allocator::{Allocator, AllocatorTrait, Memory},
-        RendererResult, RendererVkContext,
+        renderer::allocator::{Allocate, Allocator, Memory},
+        RendererResult,
     };
     use ash::vk;
+    use ash::Device;
     use std::mem;
 
-    pub fn create_and_fill_buffer<T, C>(
-        vk_context: &C,
-        allocator: &Allocator,
+    pub fn create_and_fill_buffer<T>(
+        device: &Device,
+        allocator: &mut Allocator,
         data: &[T],
         usage: vk::BufferUsageFlags,
     ) -> RendererResult<(vk::Buffer, Memory)>
     where
         T: Copy,
-        C: RendererVkContext,
     {
         let size = data.len() * mem::size_of::<T>();
-        let (buffer, memory) = allocator.create_buffer(vk_context, size, usage)?;
-        allocator.update_buffer(vk_context, &memory, data)?;
+        let (buffer, memory) = allocator.create_buffer(device, size, usage)?;
+        allocator.update_buffer(device, &memory, data)?;
         Ok((buffer, memory))
     }
 }
@@ -285,8 +298,8 @@ mod buffer {
 mod texture {
 
     use super::buffer::*;
-    use crate::renderer::allocator::{Allocator, AllocatorTrait, Memory};
-    use crate::{RendererResult, RendererVkContext};
+    use crate::renderer::allocator::{Allocate, Allocator, Memory};
+    use crate::RendererResult;
     use ash::vk;
     use ash::Device;
 
@@ -306,50 +319,47 @@ mod texture {
         /// # Arguments
         ///
         /// * `device` - The Vulkan logical device.
-        /// * `transfer_queue` - The queue with transfer capabilities to execute commands.
+        /// * `queue` - The queue with transfer capabilities to execute commands.
         /// * `command_pool` - The command pool used to create a command buffer used to record commands.
-        /// * `mem_properties` - The memory properties of the Vulkan physical device.
+        /// * `allocator` - Allocator used to allocate memory for the image.
         /// * `width` - The width of the image.
         /// * `height` - The height of the image.
         /// * `data` - The image data.
-        pub fn from_rgba8<C: RendererVkContext>(
-            vk_context: &C,
-            allocator: &Allocator,
+        pub fn from_rgba8(
+            device: &Device,
+            queue: vk::Queue,
+            command_pool: vk::CommandPool,
+            allocator: &mut Allocator,
             width: u32,
             height: u32,
             data: &[u8],
         ) -> RendererResult<Self> {
-            let device = vk_context.device();
-            let (texture, staging_buff, staging_mem) = execute_one_time_commands(
-                device,
-                vk_context.queue(),
-                vk_context.command_pool(),
-                |buffer| Self::cmd_from_rgba(vk_context, allocator, buffer, width, height, data),
-            )??;
+            let (texture, staging_buff, staging_mem) =
+                execute_one_time_commands(device, queue, command_pool, |buffer| {
+                    Self::cmd_from_rgba(device, allocator, buffer, width, height, data)
+                })??;
 
-            allocator.destroy_buffer(vk_context, staging_buff, &staging_mem)?;
+            allocator.destroy_buffer(device, staging_buff, staging_mem)?;
 
             Ok(texture)
         }
 
-        fn cmd_from_rgba<C: RendererVkContext>(
-            vk_context: &C,
-            allocator: &Allocator,
+        fn cmd_from_rgba(
+            device: &Device,
+            allocator: &mut Allocator,
             command_buffer: vk::CommandBuffer,
             width: u32,
             height: u32,
             data: &[u8],
         ) -> RendererResult<(Self, vk::Buffer, Memory)> {
-            let device = vk_context.device();
-
             let (buffer, buffer_mem) = create_and_fill_buffer(
-                vk_context,
+                device,
                 allocator,
                 data,
                 vk::BufferUsageFlags::TRANSFER_SRC,
             )?;
 
-            let (image, image_mem) = allocator.create_image(vk_context, width, height)?;
+            let (image, image_mem) = allocator.create_image(device, width, height)?;
 
             // Transition the image layout and copy the buffer into the image
             // and transition the layout again to be readable from fragment shader.
@@ -475,16 +485,11 @@ mod texture {
         }
 
         /// Free texture's resources.
-        pub fn destroy<C: RendererVkContext>(
-            &mut self,
-            vk_context: &C,
-            allocator: &Allocator,
-        ) -> RendererResult<()> {
-            let device = vk_context.device();
+        pub fn destroy(self, device: &Device, allocator: &mut Allocator) -> RendererResult<()> {
             unsafe {
                 device.destroy_sampler(self.sampler, None);
                 device.destroy_image_view(self.image_view, None);
-                allocator.destroy_image(vk_context, self.image, &self.image_mem)?;
+                allocator.destroy_image(device, self.image, self.image_mem)?;
             }
             Ok(())
         }
